@@ -1,8 +1,9 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
-import io
-from cv_algo.main import *
+import numpy as np
+import cv2
+from cv_algo.main import main_algo
 
 app = Flask(__name__)
 CORS(app)  # Allow CORS for all origins
@@ -21,16 +22,17 @@ def upload_image():
         # Open the image from the uploaded file in-memory
         image = Image.open(file.stream)
 
-        grayscale_image = main_algo(image)
+        # Convert the image to a NumPy array and handle RGBA/BGR conversion if necessary
+        image = np.array(image)
+        if image.shape[-1] == 4:
+            image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
         
-
-        # Save the grayscale image to an in-memory bytes buffer
-        img_io = io.BytesIO()
-        grayscale_image.save(img_io, 'PNG')
-        img_io.seek(0)
-
-        # Send the processed image back to the frontend
-        return send_file(img_io, mimetype='image/png')
+        # Process the image with your main algorithm
+        output_image, predicted_char = main_algo(image)
+        
+        # Return the predicted character as a JSON response
+        print(predicted_char)
+        return jsonify({'predicted_char': predicted_char})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

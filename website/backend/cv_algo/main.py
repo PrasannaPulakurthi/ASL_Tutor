@@ -5,7 +5,7 @@ import mediapipe as mp
 import numpy as np
 import pickle
 
-model_dict = pickle.load(open('./model.p', 'rb'))
+model_dict = pickle.load(open('cv_algo/model.p', 'rb'))
 model = model_dict['model']
 
 mp_hands = mp.solutions.hands
@@ -21,10 +21,11 @@ def main_algo(frame):
     x_ = []
     y_ = []
 
-    H, W, _ = frame.shape
+    frame = cv2.flip(frame, 1)
+    H, W, C = frame.shape
 
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
+    frame_rgb = frame
     results = hands.process(frame_rgb)
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
@@ -62,5 +63,7 @@ def main_algo(frame):
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 0), 4)
         cv2.putText(frame, predicted_character, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3,
                     cv2.LINE_AA)
+        return(frame,predicted_character)
+    else:
+        return (frame, "WRONG, TRY AGAIN")
         
-        return(frame)

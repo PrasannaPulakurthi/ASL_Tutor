@@ -1,34 +1,65 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import Webcam from "react-webcam";
 
 const App = () => {
-  const [greyscaleImage, setGreyscaleImage] = useState(null);
+  const [predictedChar, setPredictedChar] = useState(null); // Store predicted char
   const webcamRef = useRef(null);
 
-  const capture = async () => {
-    const imageSrc = webcamRef.current.getScreenshot();
+  // Set a flag to stop/start streaming
+  const [isStreaming, setIsStreaming] = useState(false);
 
-    // Convert base64 image to a blob
-    const blob = await fetch(imageSrc).then(res => res.blob());
+  // Function to capture a single frame from the webcam
+  const captureFrame = async () => {
+    if (webcamRef.current) {
+      const imageSrc = webcamRef.current.getScreenshot();
 
-    const formData = new FormData();
-    formData.append("image", blob, "webcam_image.png");
+      // Convert base64 image to a blob
+      const blob = await fetch(imageSrc).then(res => res.blob());
 
-    try {
-      const response = await axios.post("http://localhost:5001/upload-image", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-        responseType: "blob", // Expecting binary data (image) as response
-      });
+      const formData = new FormData();
+      formData.append("image", blob, "webcam_image.png");
 
-      const imageBlob = URL.createObjectURL(response.data);
-      setGreyscaleImage(imageBlob);
-    } catch (error) {
-      console.error("Error uploading the image:", error);
+      try {
+        // POST the image to the backend
+        const response = await axios.post("http://localhost:5001/upload-image", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          }
+        });
+
+        // Extract the predicted character from the response
+        const { predicted_char } = response.data;
+        setPredictedChar(predicted_char);  // Set the predicted character to the state
+      } catch (error) {
+        console.error("Error uploading the image:", error);
+      }
     }
   };
+
+  // Function to continuously capture frames
+  const startStreaming = () => {
+    setIsStreaming(true);
+  };
+
+  const stopStreaming = () => {
+    setIsStreaming(false);
+  };
+
+  // Effect to handle continuous streaming
+  useEffect(() => {
+    let intervalId;
+    if (isStreaming) {
+      intervalId = setInterval(() => {
+        captureFrame();  // Capture frames every set interval
+      }, 1000);  // Adjust the interval (in milliseconds) as needed
+    } else {
+      clearInterval(intervalId);
+    }
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
+  }, [isStreaming]);
 
   return (
     <div>
@@ -40,12 +71,15 @@ const App = () => {
         width={640}
         height={480}
       />
-      <button onClick={capture}>Capture and Convert</button>
+      {!isStreaming ? (
+        <button onClick={startStreaming}>Start Streaming</button>
+      ) : (
+        <button onClick={stopStreaming}>Stop Streaming</button>
+      )}
 
-      {greyscaleImage && (
+      {predictedChar && (
         <div>
-          <h2>Greyscale Image</h2>
-          <img src={greyscaleImage} alt="Greyscale" />
+          <h2>Predicted Character: {predictedChar}</h2>
         </div>
       )}
     </div>
